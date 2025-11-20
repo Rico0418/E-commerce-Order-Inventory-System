@@ -1,58 +1,39 @@
 package infrastructures
 
 import (
-	"context"
+	"ecommerce-app/domain/users/entities"
 	"log"
 	"os"
 	"sync"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-var ( 
-	dbPool *pgxpool.Pool
+var (
+	db   *gorm.DB
 	once sync.Once
 )
-func InitPostgres() *pgxpool.Pool {
+
+func GetDB() *gorm.DB {
 	once.Do(func() {
 		dsn := os.Getenv("DATABASE_URL")
 		if dsn == "" {
-			log.Fatal("DATABASE_URL environment variable is required")
+			log.Fatal("DATABASE_URL is required")
 		}
 
-		cfg, err := pgxpool.ParseConfig(dsn)
+		conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 		if err != nil {
-			log.Fatalf("Failed parsing PostgreSQL DSN: %v", err)
+			log.Fatalf("failed to connect database: %v", err)
 		}
-
-		cfg.MaxConns = 10
-		cfg.MinConns = 2
-		cfg.MaxConnLifetime = time.Hour
-		cfg.HealthCheckPeriod = time.Minute * 1
-
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		pool, err := pgxpool.NewWithConfig(ctx, cfg)
+		err = conn.AutoMigrate(&entities.User{})
 		if err != nil {
-			log.Fatalf("Failed connecting to PostgreSQL: %v", err)
+			log.Fatalf("failed running migrations: %v", err)
 		}
 
-		if err := pool.Ping(ctx); err != nil {
-			log.Fatalf("PostgreSQL ping failed: %v", err)
-		}
-
-		log.Println("Connected to PostgreSQL ✨")
-		dbPool = pool
+		log.Println("Database connected & migrated")
+		db = conn
 	})
 
-	return dbPool
-}
-
-func ClosePostgres() {
-	if dbPool != nil {
-		dbPool.Close()
-		log.Println("PostgreSQL connection closed")
-	}
+	return db
 }
