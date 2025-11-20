@@ -3,6 +3,7 @@ package config
 import (
 	"ecommerce-app/domain/users/entities"
 	productEntities "ecommerce-app/domain/products/entities"
+	orderEntities "ecommerce-app/domain/orders/entities"
 	"log"
 	"os"
 	"sync"
@@ -27,7 +28,7 @@ func GetDB() *gorm.DB {
 		if err != nil {
 			log.Fatalf("failed to connect database: %v", err)
 		}
-		err = conn.AutoMigrate(&entities.User{}, &productEntities.Product{})
+		err = conn.AutoMigrate(&entities.User{}, &productEntities.Product{}, &orderEntities.Order{}, &orderEntities.OrderItem{})
 		if err != nil {
 			log.Fatalf("failed running migrations: %v", err)
 		}

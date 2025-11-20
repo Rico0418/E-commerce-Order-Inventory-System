@@ -14,6 +14,10 @@ import (
 	productHandlers "ecommerce-app/domain/products/handlers"
 	productRepositories "ecommerce-app/domain/products/repositories"
 	productUseCase "ecommerce-app/domain/products/usecase"
+
+	orderHandlers "ecommerce-app/domain/orders/handlers"
+	orderRepositories "ecommerce-app/domain/orders/repositories"
+	orderUseCase "ecommerce-app/domain/orders/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -32,6 +36,10 @@ func main() {
 	productUC := productUseCase.NewProductUsecase(productRepo, redisClient)
 	productH := productHandlers.NewProductHandler(productUC)
 
+	orderRepo := orderRepositories.NewGormOrderRepo(db)
+	orderUC := orderUseCase.NewOrderUsecase(orderRepo, productRepo, redisClient)
+	orderHandler := orderHandlers.NewOrderHandler(orderUC)
+
 	router := gin.Default()
 
 	router.POST("/register", userH.Register)
@@ -45,6 +53,9 @@ func main() {
 
 		protected.GET("/products", productH.GetProducts)
 		protected.GET("/products/:id", productH.GetProduct)
+
+		protected.POST("/orders", orderHandler.CreateOrder)
+		protected.GET("/orders/:id", orderHandler.GetOrder)
 	}
 
 	port := os.Getenv("PORT")
