@@ -1,15 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
+	"ecommerce-app/config"
 	"ecommerce-app/domain/users/handlers"
 	"ecommerce-app/domain/users/repositories"
 	"ecommerce-app/domain/users/usecase"
-	"ecommerce-app/config"
 	"ecommerce-app/shared/middleware"
-
 
 	productHandlers "ecommerce-app/domain/products/handlers"
 	productRepositories "ecommerce-app/domain/products/repositories"
@@ -18,6 +18,10 @@ import (
 	orderHandlers "ecommerce-app/domain/orders/handlers"
 	orderRepositories "ecommerce-app/domain/orders/repositories"
 	orderUseCase "ecommerce-app/domain/orders/usecase"
+
+	inventory "ecommerce-app/workers/inventory"
+	notification "ecommerce-app/workers/notification"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -28,6 +32,7 @@ func main() {
 	}
 	db := config.GetDB()
 	redisClient := config.GetRedis()
+
 	userRepo := repositories.NewGormUserRepo(db)
 	userUC := usecase.NewUserUseCase(userRepo)
 	userH := handlers.NewUserHandler(userUC)
@@ -39,6 +44,15 @@ func main() {
 	orderRepo := orderRepositories.NewGormOrderRepo(db)
 	orderUC := orderUseCase.NewOrderUsecase(orderRepo, productRepo, redisClient)
 	orderHandler := orderHandlers.NewOrderHandler(orderUC)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := inventory.StartInventoryWorker(ctx, db, orderRepo, productRepo); err != nil {
+		log.Fatalf("failed to start inventory worker: %v", err)
+	}
+	if err := notification.StartNotificationWorker(ctx); err != nil {
+		log.Fatalf("failed to start notification worker: %v", err)
+	}
 
 	router := gin.Default()
 
